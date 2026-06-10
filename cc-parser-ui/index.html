@@ -46,6 +46,27 @@
             padding: 10px 14px; font-size: 0.8rem; overflow-x: auto;
             max-height: 200px; white-space: pre;
         }
+        .password-prompt {
+            margin: 16px 0; padding: 20px; background: #fff; border: 2px solid #fbbf24;
+            border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .password-prompt p { margin-bottom: 12px; color: #92400e; }
+        .password-prompt input[type="password"] {
+            width: 100%; padding: 10px 14px; border: 1px solid #d1d5db;
+            border-radius: 6px; font-size: 1rem; margin-bottom: 12px;
+        }
+        .password-prompt input[type="password"]:focus { outline: none; border-color: #2563eb; }
+        .password-actions { display: flex; gap: 10px; }
+        .decrypt-btn {
+            padding: 8px 20px; background: #2563eb; color: #fff; border: none;
+            border-radius: 6px; cursor: pointer; font-weight: 500;
+        }
+        .decrypt-btn:hover { background: #1d4ed8; }
+        .cancel-btn {
+            padding: 8px 20px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db;
+            border-radius: 6px; cursor: pointer; font-weight: 500;
+        }
+        .cancel-btn:hover { background: #e5e7eb; }
     </style>
 </head>
 <body>

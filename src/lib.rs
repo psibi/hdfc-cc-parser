@@ -25,17 +25,23 @@ impl Transaction {
     }
 }
 
+pub fn is_pdf_encrypted(data: &[u8]) -> bool {
+    Document::load_from(Cursor::new(data))
+        .map(|doc| doc.is_encrypted())
+        .unwrap_or(false)
+}
+
 pub fn parse_pdf_bytes(data: &[u8]) -> Result<Vec<Transaction>, Box<dyn std::error::Error>> {
     let doc = Document::load_from(Cursor::new(data))?;
-    let mut all_lines = Vec::new();
+    parse_doc(&doc)
+}
 
-    for page_id in doc.page_iter() {
-        let content_data = doc.get_page_content(page_id)?;
-        let page_lines = extract_lines(&content_data);
-        all_lines.extend(page_lines);
-    }
-
-    Ok(parse_transactions(&all_lines))
+pub fn parse_pdf_bytes_with_password(
+    data: &[u8],
+    password: &str,
+) -> Result<Vec<Transaction>, Box<dyn std::error::Error>> {
+    let doc = Document::load_mem_with_password(data, password)?;
+    parse_doc(&doc)
 }
 
 pub fn extract_lines_from_pdf(data: &[u8]) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -49,6 +55,18 @@ pub fn extract_lines_from_pdf(data: &[u8]) -> Result<Vec<String>, Box<dyn std::e
     }
 
     Ok(all_lines)
+}
+
+fn parse_doc(doc: &Document) -> Result<Vec<Transaction>, Box<dyn std::error::Error>> {
+    let mut all_lines = Vec::new();
+
+    for page_id in doc.page_iter() {
+        let content_data = doc.get_page_content(page_id)?;
+        let page_lines = extract_lines(&content_data);
+        all_lines.extend(page_lines);
+    }
+
+    Ok(parse_transactions(&all_lines))
 }
 
 fn extract_lines(content: &[u8]) -> Vec<String> {

@@ -14,7 +14,7 @@ required-features = ["cli"]
 members = ["cc-parser-ui"]
 
 [dependencies]
-lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] }
+lopdf = { version = "0.40", default-features = false }
 winnow = "0.7"
 wasm-bindgen = { version = "0.2", optional = true }
 clap = { version = "4", features = ["derive"], optional = true }

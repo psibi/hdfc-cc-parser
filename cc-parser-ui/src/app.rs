@@ -11,6 +11,9 @@ pub fn App() -> impl IntoView {
     let (file_name, set_file_name) = signal(String::new());
     let (processing, set_processing) = signal(false);
     let (parsed_count, set_parsed_count) = signal(0usize);
+    let (encrypted, set_encrypted) = signal(false);
+    let (password, set_password) = signal(String::new());
+    let (pending_bytes, set_pending_bytes) = signal(None::<Vec<u8>>);
 
     let csv_string = move || {
         let txns = transactions.get();
@@ -42,12 +45,24 @@ pub fn App() -> impl IntoView {
                 set_error.set(None);
                 set_processing.set(true);
 
+                let _name_clone = name.clone();
                 leptos::task::spawn_local(async move {
                     let promise = file.array_buffer();
                     let result = JsFuture::from(promise).await;
                     let array_buffer = result.unwrap();
                     let bytes = js_sys::Uint8Array::new(&array_buffer).to_vec();
                     web_sys::console::log_1(&format!("read {} bytes", bytes.len()).into());
+
+                    if hdfc_cc_parser::is_pdf_encrypted(&bytes) {
+                        web_sys::console::log_1(&"PDF is encrypted, prompting for password".into());
+                        set_encrypted.set(true);
+                        set_pending_bytes.set(Some(bytes));
+                        set_processing.set(false);
+                        return;
+                    }
+
+                    set_encrypted.set(false);
+                    set_pending_bytes.set(None);
 
                     match hdfc_cc_parser::extract_lines_from_pdf(&bytes) {
                         Ok(lines) => {
@@ -86,6 +101,81 @@ pub fn App() -> impl IntoView {
                         Err(e) => {
                             web_sys::console::log_1(&format!("parse error: {e}").into());
                             set_error.set(Some(format!("Parsing error: {e}")));
+                            set_processing.set(false);
+                        }
+                    }
+                });
+            }
+        }
+    };
+
+    let submit_password = move |ev: leptos::ev::MouseEvent| {
+        ev.prevent_default();
+        let pwd = password.get();
+        if pwd.is_empty() {
+            return;
+        }
+        if let Some(bytes) = pending_bytes.get() {
+            set_encrypted.set(false);
+            set_processing.set(true);
+            set_error.set(None);
+            let pwd = pwd.clone();
+            leptos::task::spawn_local(async move {
+                match hdfc_cc_parser::parse_pdf_bytes_with_password(&bytes, &pwd) {
+                    Ok(txns) => {
+                        set_parsed_count.set(txns.len());
+                        set_transactions.set(txns);
+                        set_processing.set(false);
+                    }
+                    Err(e) => {
+                        let msg = format!("{e}");
+                        web_sys::console::log_1(&format!("decrypt error: {msg}").into());
+                        if msg.contains("InvalidPassword") || msg.contains("password") {
+                            set_error.set(Some("Incorrect password. Try again.".into()));
+                            set_encrypted.set(true);
+                        } else {
+                            set_error.set(Some(format!("Parsing error: {e}")));
+                        }
+                        set_processing.set(false);
+                    }
+                }
+            });
+        }
+    };
+
+    let cancel_password = move |ev: leptos::ev::MouseEvent| {
+        ev.prevent_default();
+        set_encrypted.set(false);
+        set_pending_bytes.set(None);
+        set_password.set(String::new());
+    };
+
+    let on_password_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Enter" {
+            let pwd = password.get();
+            if pwd.is_empty() {
+                return;
+            }
+            if let Some(bytes) = pending_bytes.get() {
+                set_encrypted.set(false);
+                set_processing.set(true);
+                set_error.set(None);
+                let pwd = pwd.clone();
+                leptos::task::spawn_local(async move {
+                    match hdfc_cc_parser::parse_pdf_bytes_with_password(&bytes, &pwd) {
+                        Ok(txns) => {
+                            set_parsed_count.set(txns.len());
+                            set_transactions.set(txns);
+                            set_processing.set(false);
+                        }
+                        Err(e) => {
+                            let msg = format!("{e}");
+                            if msg.contains("InvalidPassword") || msg.contains("password") {
+                                set_error.set(Some("Incorrect password. Try again.".into()));
+                                set_encrypted.set(true);
+                            } else {
+                                set_error.set(Some(format!("Parsing error: {e}")));
+                            }
                             set_processing.set(false);
                         }
                     }
@@ -142,6 +232,26 @@ pub fn App() -> impl IntoView {
             {move || processing.get().then(|| view! { <p class="status">"Processing..."</p> })}
 
             {move || error.get().map(|e| view! { <p class="error">{e}</p> })}
+
+            {move || encrypted.get().then(|| view! {
+                <div class="password-prompt">
+                    <p>"This PDF is password protected. Enter the password to decrypt it."</p>
+                    <input
+                        type="password"
+                        placeholder="PDF password"
+                        on:input=move |ev| {
+                            set_password.set(event_target_value(&ev));
+                        }
+                        on:keydown=on_password_keydown
+                    />
+                    <button class="decrypt-btn" on:click=submit_password>
+                        "Decrypt"
+                    </button>
+                    <button class="cancel-btn" on:click=cancel_password>
+                        "Cancel"
+                    </button>
+                </div>
+            })}
 
             {move || {
                 let count = parsed_count.get();
