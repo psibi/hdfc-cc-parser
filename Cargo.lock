@@ -345,6 +345,7 @@ dependencies = [
  "csv",
  "lopdf",
  "regex",
+ "wasm-bindgen",
 ]
 
 [[package]]
