@@ -40,7 +40,7 @@ pub fn parse_pdf_bytes_with_password(
     data: &[u8],
     password: &str,
 ) -> Result<Vec<Transaction>, Box<dyn std::error::Error>> {
-    let doc = Document::load_mem_with_password(data, password)?;
+    let doc = Document::load_mem_with_options(data, lopdf::LoadOptions::with_password(password))?;
     parse_doc(&doc)
 }
 
