@@ -1,0 +1,11 @@
+[package]
+name = "hdfc-cc-parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+lopdf = "0.34"
+csv = "1"
+regex = "1"
+
