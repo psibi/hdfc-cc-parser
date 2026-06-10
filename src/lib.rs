@@ -33,6 +33,19 @@ pub fn parse_pdf_bytes(data: &[u8]) -> Result<Vec<Transaction>, Box<dyn std::err
     Ok(parse_transactions(&all_lines))
 }
 
+pub fn extract_lines_from_pdf(data: &[u8]) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let doc = Document::load_from(Cursor::new(data))?;
+    let mut all_lines = Vec::new();
+
+    for page_id in doc.page_iter() {
+        let content_data = doc.get_page_content(page_id)?;
+        let page_lines = extract_lines(&content_data);
+        all_lines.extend(page_lines);
+    }
+
+    Ok(all_lines)
+}
+
 fn extract_lines(content: &[u8]) -> Vec<String> {
     let s = String::from_utf8_lossy(content);
     let b = s.as_bytes();
@@ -68,6 +81,53 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
                     current.push(' ');
                 }
                 current.push_str(text.trim());
+            }
+            i = j;
+            continue;
+        }
+
+        if b[i] == b'[' {
+            let j = match s[i..].find(']') {
+                Some(pos) => i + pos + 1,
+                None => {
+                    i += 1;
+                    continue;
+                }
+            };
+            let after = s[j..].trim_start();
+            if after.starts_with("TJ") {
+                let array_content = &s[i + 1..j - 1];
+                let mut array_text = String::new();
+                let mut ci = 0;
+                let arr_bytes = array_content.as_bytes();
+                while ci < arr_bytes.len() {
+                    if arr_bytes[ci] == b'(' {
+                        let mut depth = 1i32;
+                        let mut cj = ci + 1;
+                        while cj < arr_bytes.len() && depth > 0 {
+                            if arr_bytes[cj] == b'\\' && cj + 1 < arr_bytes.len() {
+                                cj += 2;
+                                continue;
+                            }
+                            if arr_bytes[cj] == b'(' {
+                                depth += 1;
+                            } else if arr_bytes[cj] == b')' {
+                                depth -= 1;
+                            }
+                            cj += 1;
+                        }
+                        let inner = &array_content[ci + 1..cj - 1];
+                        let text = inner.replace("\\(", "(").replace("\\)", ")").replace("\\\\", "\\");
+                        array_text.push_str(text.trim());
+                        ci = cj;
+                    } else {
+                        ci += 1;
+                    }
+                }
+                if !current.is_empty() {
+                    current.push(' ');
+                }
+                current.push_str(array_text.trim());
             }
             i = j;
             continue;

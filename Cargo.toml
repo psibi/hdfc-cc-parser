@@ -10,8 +10,11 @@ crate-type = ["rlib", "cdylib"]
 name = "hdfc-cc-parser"
 required-features = ["cli"]
 
+[workspace]
+members = ["cc-parser-ui"]
+
 [dependencies]
-lopdf = "0.34"
+lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] }
 regex = "1"
 wasm-bindgen = { version = "0.2", optional = true }
 clap = { version = "4", features = ["derive"], optional = true }
