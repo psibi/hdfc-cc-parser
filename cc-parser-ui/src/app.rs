@@ -145,6 +145,8 @@ pub fn App() -> impl IntoView {
 
             {move || {
                 let count = parsed_count.get();
+                let processing = processing.get();
+                let has_file = !file_name.get().is_empty();
                 let csv = csv_string();
                 if count > 0 {
                     view! {
@@ -157,6 +159,12 @@ pub fn App() -> impl IntoView {
                         <div class="csv-preview">
                             <h3>"CSV Preview"</h3>
                             <pre>{csv}</pre>
+                        </div>
+                    }.into_any()
+                } else if has_file && !processing {
+                    view! {
+                        <div class="result-bar">
+                            <span>"0 transactions found"</span>
                         </div>
                     }.into_any()
                 } else {

@@ -1,7 +1,12 @@
 use lopdf::Document;
-use regex::Regex;
 use std::collections::HashSet;
 use std::io::Cursor;
+use winnow::{
+    ascii::{float, space0, space1},
+    combinator::{eof, opt},
+    token::take_while,
+    Parser,
+};
 
 #[cfg_attr(
     feature = "wasm",
@@ -53,8 +58,6 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
     let mut current = String::new();
     let mut last_y: Option<f64> = None;
     let mut i = 0;
-
-    let td_re = Regex::new(r"^([\d.-]+)\s+([\d.-]+)\s+Td").unwrap();
 
     while i < b.len() {
         if b[i] == b'(' {
@@ -135,8 +138,7 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
 
         if b[i].is_ascii_digit() || b[i] == b'-' || b[i] == b'.' {
             let rest = &s[i..];
-            if let Some(caps) = td_re.captures(rest) {
-                let y: f64 = caps[2].parse().unwrap_or(0.0);
+            if let Some((_x, y, len)) = parse_td_coords(rest) {
                 if let Some(prev) = last_y {
                     if (y - prev).abs() > 3.0 && !current.trim().is_empty() {
                         lines.push(current.trim().to_string());
@@ -144,7 +146,7 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
                     }
                 }
                 last_y = Some(y);
-                i += caps.get(0).unwrap().len();
+                i += len;
                 continue;
             }
         }
@@ -157,6 +159,66 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
     }
 
     lines
+}
+
+fn parse_td_coords(s: &str) -> Option<(f64, f64, usize)> {
+    let mut input = s;
+    let (x, _, y): (f64, _, f64) = (
+        float::<_, f64, winnow::error::ContextError>,
+        space1::<_, winnow::error::ContextError>,
+        float::<_, f64, winnow::error::ContextError>,
+    )
+        .parse_next(&mut input)
+        .ok()?;
+    let _ = space0::<_, winnow::error::ContextError>.parse_next(&mut input).ok()?;
+    if input.starts_with("Td") {
+        Some((x, y, s.len() - input.len() + 2))
+    } else {
+        None
+    }
+}
+
+fn find_date(text: &str) -> Option<(usize, String)> {
+    for (i, _) in text.char_indices() {
+        let mut rest = &text[i..];
+        let before = rest;
+        let result = (
+            take_while(2..=2, |c: char| c.is_ascii_digit()),
+            '/',
+            take_while(2..=2, |c: char| c.is_ascii_digit()),
+            '/',
+            take_while(4..=4, |c: char| c.is_ascii_digit()),
+            space0::<_, winnow::error::ContextError>,
+            '|',
+            space0::<_, winnow::error::ContextError>,
+            take_while(2..=2, |c: char| c.is_ascii_digit()),
+            ':',
+            take_while(2..=2, |c: char| c.is_ascii_digit()),
+        )
+            .parse_next(&mut rest);
+        if result.is_ok() {
+            let end = i + (before.len() - rest.len());
+            return Some((end, text[i..end].to_string()));
+        }
+    }
+    None
+}
+
+fn has_date(text: &str) -> bool {
+    find_date(text).is_some()
+}
+
+fn is_amount_word(s: &str) -> bool {
+    let mut input = s;
+    let result = (
+        opt('+'),
+        space0::<_, winnow::error::ContextError>,
+        take_while(1.., |c: char| c.is_ascii_digit() || c == ','),
+        opt(('.', take_while(1.., |c: char| c.is_ascii_digit()))),
+        eof,
+    )
+        .parse_next(&mut input);
+    result.is_ok()
 }
 
 fn is_stop_line(line: &str) -> bool {
@@ -183,30 +245,27 @@ fn is_stop_line(line: &str) -> bool {
 }
 
 fn parse_transactions(lines: &[String]) -> Vec<Transaction> {
-    let date_re = Regex::new(r"(\d{2}/\d{2}/\d{4}\s*\|\s*\d{2}:\d{2})").unwrap();
-    let amount_re = Regex::new(r"^[+]?\s*[\d,]+\.?\d+$").unwrap();
-
     let mut transactions = Vec::new();
     let mut i = 0;
 
     while i < lines.len() {
         let line = &lines[i];
 
-        if let Some(dm) = date_re.find(line) {
-            let date = dm.as_str().replace(" ", "");
-            let rest = line[dm.end()..].trim().to_string();
+        if let Some((dm_end, date_text)) = find_date(line) {
+            let date = date_text.replace(" ", "");
+            let rest = line[dm_end..].trim().to_string();
 
             let mut desc_words = Vec::new();
             let mut amount = String::new();
             let mut is_credit = false;
 
-            collect_words(&rest, &amount_re, &mut desc_words, &mut amount, &mut is_credit);
+            collect_words(&rest, &mut desc_words, &mut amount, &mut is_credit);
 
             let mut j = i + 1;
             while j < lines.len() && j < i + 8 {
                 let next = &lines[j];
 
-                if date_re.is_match(next)
+                if has_date(next)
                     || (next.contains("Domestic Transactions") && desc_words.is_empty())
                     || (next.contains("International Transactions") && desc_words.is_empty())
                     || is_stop_line(next)
@@ -214,7 +273,7 @@ fn parse_transactions(lines: &[String]) -> Vec<Transaction> {
                     break;
                 }
 
-                collect_words(next, &amount_re, &mut desc_words, &mut amount, &mut is_credit);
+                collect_words(next, &mut desc_words, &mut amount, &mut is_credit);
 
                 if !amount.is_empty() {
                     j += 1;
@@ -250,7 +309,6 @@ fn parse_transactions(lines: &[String]) -> Vec<Transaction> {
 
 fn collect_words(
     text: &str,
-    amount_re: &Regex,
     desc: &mut Vec<String>,
     amount: &mut String,
     is_credit: &mut bool,
@@ -260,7 +318,7 @@ fn collect_words(
     while w < words.len() {
         match words[w] {
             "C" => {
-                if w + 1 < words.len() && amount_re.is_match(words[w + 1]) {
+                if w + 1 < words.len() && is_amount_word(words[w + 1]) {
                     if amount.is_empty() {
                         let raw = words[w + 1];
                         if raw.starts_with('+') {
@@ -294,7 +352,7 @@ fn collect_words(
                 w += 1;
             }
             word => {
-                if amount_re.is_match(word) && amount.is_empty() {
+                if is_amount_word(word) && amount.is_empty() {
                     if word.contains(',') {
                         *amount = word.trim_start_matches('+').trim().replace(',', "").to_string();
                     }
