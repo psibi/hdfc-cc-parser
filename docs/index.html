@@ -6,8 +6,8 @@
     <title>HDFC Infinia CC Parser</title>
     
 <script type="module">
-import init, * as bindings from '/hdfc-cc-parser/cc-parser-ui-5ea39aef51cadb31.js';
-const wasm = await init({ module_or_path: '/hdfc-cc-parser/cc-parser-ui-5ea39aef51cadb31_bg.wasm' });
+import init, * as bindings from '/hdfc-cc-parser/cc-parser-ui-dd06f3e7a6dc2a09.js';
+const wasm = await init({ module_or_path: '/hdfc-cc-parser/cc-parser-ui-dd06f3e7a6dc2a09_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -47,6 +47,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         .desc { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .debit { color: #dc2626; }
         .credit { color: #16a34a; }
+        tfoot td { padding: 12px 14px; border-top: 2px solid #e2e8f0; font-weight: 700; background: #fafafa; }
         .csv-preview {
             margin: 16px 0; padding: 12px 16px; background: #fff; border-radius: 6px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -98,7 +99,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             margin-top: 16px; padding: 6px 12px;
         }
     </style>
-<link rel="modulepreload" href="/hdfc-cc-parser/cc-parser-ui-5ea39aef51cadb31.js" crossorigin="anonymous"><link rel="preload" href="/hdfc-cc-parser/cc-parser-ui-5ea39aef51cadb31_bg.wasm" crossorigin="anonymous" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/hdfc-cc-parser/cc-parser-ui-dd06f3e7a6dc2a09.js" crossorigin="anonymous"><link rel="preload" href="/hdfc-cc-parser/cc-parser-ui-dd06f3e7a6dc2a09_bg.wasm" crossorigin="anonymous" as="fetch" type="application/wasm"></head>
 <body>
     <main id="app"></main>
 </body>

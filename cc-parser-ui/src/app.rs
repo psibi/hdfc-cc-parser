@@ -296,6 +296,12 @@ pub fn App() -> impl IntoView {
                                     </tr>
                                 }).collect::<Vec<_>>()}
                             </tbody>
+                            <tfoot>
+                                <tr class="total-debit">
+                                    <td colspan="2">"Total (excl. payments)"</td>
+                                    <td class="debit">{format!("{:.2}", txns.iter().filter(|t| !t.description.contains("CREDIT CARD PAYMENT")).map(|t| t.amount).sum::<f64>())}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     }.into_any()
                 }
