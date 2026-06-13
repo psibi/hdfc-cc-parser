@@ -31,16 +31,14 @@ pub fn App() -> impl IntoView {
     };
 
     let on_file_change = move |ev: leptos::ev::Event| {
-                    web_sys::console::log_1(&"on_file_change fired".into());
-        let target = ev
-            .target()
-            .unwrap()
-            .unchecked_into::<HtmlInputElement>();
+        let Some(target) = ev.target() else {
+            return;
+        };
+        let target = target.unchecked_into::<HtmlInputElement>();
         let files = target.files();
         if let Some(files) = files {
             if let Some(file) = files.get(0) {
                 let name = file.name();
-                web_sys::console::log_1(&format!("file: {name}").into());
                 set_file_name.set(name.clone());
                 set_error.set(None);
                 set_processing.set(true);
@@ -49,12 +47,13 @@ pub fn App() -> impl IntoView {
                 leptos::task::spawn_local(async move {
                     let promise = file.array_buffer();
                     let result = JsFuture::from(promise).await;
-                    let array_buffer = result.unwrap();
+                    let Ok(array_buffer) = result else {
+                        set_error.set(Some("Failed to read file".into()));
+                        set_processing.set(false);
+                        return;
+                    };
                     let bytes = js_sys::Uint8Array::new(&array_buffer).to_vec();
-                    web_sys::console::log_1(&format!("read {} bytes", bytes.len()).into());
-
                     if hdfc_cc_parser::is_pdf_encrypted(&bytes) {
-                        web_sys::console::log_1(&"PDF is encrypted, prompting for password".into());
                         set_encrypted.set(true);
                         set_pending_bytes.set(Some(bytes));
                         set_processing.set(false);
@@ -64,42 +63,15 @@ pub fn App() -> impl IntoView {
                     set_encrypted.set(false);
                     set_pending_bytes.set(None);
 
-                    match hdfc_cc_parser::extract_lines_from_pdf(&bytes) {
-                        Ok(lines) => {
-                            web_sys::console::log_1(&format!("extracted {} lines", lines.len()).into());
-                            let show = lines.len().min(40);
-                            for (i, line) in lines.iter().enumerate().take(show) {
-                                web_sys::console::log_1(&format!("  line[{i}]: [{line}]").into());
-                            }
-                            let date_re = regex::Regex::new(r"(\d{2}/\d{2}/\d{4}\s*\|\s*\d{2}:\d{2})").unwrap();
-                            let date_matches: Vec<_> = lines.iter().enumerate().filter(|(_, l)| date_re.is_match(l)).collect();
-                            web_sys::console::log_1(&format!("lines with date pattern (4-digit yr): {}", date_matches.len()).into());
 
-                            let date_re2 = regex::Regex::new(r"\d{2}/\d{2}/\d{2}").unwrap();
-                            let any_date: Vec<_> = lines.iter().enumerate().filter(|(_, l)| date_re2.is_match(l)).collect();
-                            web_sys::console::log_1(&format!("lines with any dd/mm/yy: {}", any_date.len()).into());
-                            for (i, line) in any_date.iter().take(5) {
-                                web_sys::console::log_1(&format!("  anydate_line[{i}]: [{line}]").into());
-                            }
-
-                            let ref_re = regex::Regex::new(r"Ref#").unwrap();
-                            let ref_lines: Vec<_> = lines.iter().enumerate().filter(|(_, l)| ref_re.is_match(l)).collect();
-                            web_sys::console::log_1(&format!("lines with Ref#: {}", ref_lines.len()).into());
-                        }
-                        Err(e) => {
-                            web_sys::console::log_1(&format!("extract_lines error: {e}").into());
-                        }
-                    }
 
                     match hdfc_cc_parser::parse_pdf_bytes(&bytes) {
                         Ok(txns) => {
                             set_parsed_count.set(txns.len());
-                            web_sys::console::log_1(&format!("parsed {} transactions", txns.len()).into());
                             set_transactions.set(txns);
                             set_processing.set(false);
                         }
                         Err(e) => {
-                            web_sys::console::log_1(&format!("parse error: {e}").into());
                             set_error.set(Some(format!("Parsing error: {e}")));
                             set_processing.set(false);
                         }
@@ -129,7 +101,6 @@ pub fn App() -> impl IntoView {
                     }
                     Err(e) => {
                         let msg = format!("{e}");
-                        web_sys::console::log_1(&format!("decrypt error: {msg}").into());
                         if msg.contains("InvalidPassword") || msg.contains("password") {
                             set_error.set(Some("Incorrect password. Try again.".into()));
                             set_encrypted.set(true);
@@ -192,17 +163,37 @@ pub fn App() -> impl IntoView {
 
         let props = BlobPropertyBag::new();
         props.set_type("text/csv");
-        let blob =
-            Blob::new_with_str_sequence_and_options(&js_sys::Array::of1(&csv.into()), &props)
-                .unwrap();
+        let blob = match Blob::new_with_str_sequence_and_options(&js_sys::Array::of1(&csv.into()), &props) {
+            Ok(b) => b,
+            Err(e) => {
+                set_error.set(Some(format!("Failed to create blob: {e:?}")));
+                return;
+            }
+        };
 
-        let url = Url::create_object_url_with_blob(&blob).unwrap();
-        let window = web_sys::window().unwrap();
-        let document = window.document().unwrap();
-        let a = document
-            .create_element("a")
-            .unwrap()
-            .unchecked_into::<web_sys::HtmlAnchorElement>();
+        let url = match Url::create_object_url_with_blob(&blob) {
+            Ok(u) => u,
+            Err(e) => {
+                set_error.set(Some(format!("Failed to create URL: {e:?}")));
+                return;
+            }
+        };
+        let Some(window) = web_sys::window() else {
+            set_error.set(Some("Window object unavailable".into()));
+            return;
+        };
+        let Some(document) = window.document() else {
+            set_error.set(Some("Document object unavailable".into()));
+            return;
+        };
+        let a = match document.create_element("a") {
+            Ok(el) => el,
+            Err(e) => {
+                set_error.set(Some(format!("Failed to create element: {e:?}")));
+                return;
+            }
+        };
+        let a = a.unchecked_into::<web_sys::HtmlAnchorElement>();
         a.set_href(&url);
         let out_name = if file_name.get().ends_with(".pdf") {
             file_name.get().replace(".pdf", ".csv")
@@ -211,13 +202,13 @@ pub fn App() -> impl IntoView {
         };
         a.set_download(&out_name);
         a.click();
-        Url::revoke_object_url(&url).unwrap();
+        let _ = Url::revoke_object_url(&url);
     };
 
     view! {
         <div class="container">
-            <h1>"HDFC CC Parser"</h1>
-            <p>"Upload a HDFC credit card PDF statement to extract transactions as CSV."</p>
+            <h1>"HDFC Infinia CC Parser"</h1>
+            <p>"Upload a HDFC Infinia credit card PDF statement to extract transactions as CSV."</p>
 
             <label class="file-label" for="pdf-upload">
                 "Choose PDF file"
@@ -313,6 +304,21 @@ pub fn App() -> impl IntoView {
                 }
             }}
             </div>
+            <div class="privacy-note">
+                "🔒 No data leaves your device — all parsing happens client-side via WebAssembly."
+            </div>
+            <footer>
+                <div class="footer-links">
+                    <a href="http://psibi.in/" target="_blank" rel="noopener noreferrer">"🏠 Author"</a>
+                    <span class="sep">"·"</span>
+                    <a href="https://github.com/psibi/hdfc-cc-parser" target="_blank" rel="noopener noreferrer">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle;margin-right:0.25em;">
+                            <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        "Source"
+                    </a>
+                </div>
+            </footer>
         </div>
     }
 }

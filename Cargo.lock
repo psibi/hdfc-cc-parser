@@ -225,7 +225,6 @@ dependencies = [
  "hdfc-cc-parser",
  "js-sys",
  "leptos",
- "regex",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

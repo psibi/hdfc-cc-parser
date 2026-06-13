@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDFC CC Parser</title>
+    <title>HDFC Infinia CC Parser</title>
     <link data-trunk rel="rust" data-wasm-opt="0" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,6 +67,25 @@
             border-radius: 6px; cursor: pointer; font-weight: 500;
         }
         .cancel-btn:hover { background: #e5e7eb; }
+        footer {
+            text-align: center; padding: 28px 20px 8px; margin-top: 32px;
+            border-top: 1px solid #e2e8f0; font-size: 0.85rem; color: #94a3b8;
+        }
+        footer .footer-links {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; flex-wrap: wrap;
+        }
+        footer a {
+            color: #475569; text-decoration: none; padding: 4px 10px;
+            border-radius: 4px; transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
+        }
+        footer a:hover { background: #f1f5f9; color: #2563eb; text-decoration: none; }
+        footer .sep { color: #cbd5e1; user-select: none; }
+        .privacy-note {
+            text-align: center; font-size: 0.8rem; color: #94a3b8;
+            margin-top: 16px; padding: 6px 12px;
+        }
     </style>
 </head>
 <body>

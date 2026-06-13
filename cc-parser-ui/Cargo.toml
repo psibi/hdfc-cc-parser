@@ -15,4 +15,4 @@ hdfc-cc-parser = { path = "..", default-features = false }
 web-sys = { version = "0.3", features = ["HtmlInputElement", "File", "FileList", "Blob", "BlobPropertyBag", "Url", "Window", "console"] }
 js-sys = "0.3"
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
-regex = "1"
+
