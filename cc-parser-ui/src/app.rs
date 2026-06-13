@@ -14,6 +14,15 @@ pub fn App() -> impl IntoView {
     let (encrypted, set_encrypted) = signal(false);
     let (password, set_password) = signal(String::new());
     let (pending_bytes, set_pending_bytes) = signal(None::<Vec<u8>>);
+    let password_input_ref: NodeRef<leptos::html::Input> = NodeRef::new();
+
+    Effect::new(move |_| {
+        if encrypted.get() {
+            if let Some(el) = password_input_ref.get() {
+                let _ = el.focus();
+            }
+        }
+    });
 
     let csv_string = move || {
         let txns = transactions.get();
@@ -227,6 +236,7 @@ pub fn App() -> impl IntoView {
                     <input
                         type="password"
                         placeholder="PDF password"
+                        node_ref=password_input_ref
                         on:input=move |ev| {
                             set_password.set(event_target_value(&ev));
                         }
