@@ -25,7 +25,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     wtr.flush()?;
-    println!("Exported {} transactions to {}", transactions.len(), cli.output.display());
+    println!(
+        "Exported {} transactions to {}",
+        transactions.len(),
+        cli.output.display()
+    );
 
     Ok(())
 }

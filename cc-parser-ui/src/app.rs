@@ -22,10 +22,7 @@ pub fn App() -> impl IntoView {
         }
         let mut csv = String::from("Date,Description,Amount\n");
         for t in &txns {
-            csv.push_str(&format!(
-                "{},{},{:.2}\n",
-                t.date, t.description, t.amount
-            ));
+            csv.push_str(&format!("{},{},{:.2}\n", t.date, t.description, t.amount));
         }
         csv
     };
@@ -62,8 +59,6 @@ pub fn App() -> impl IntoView {
 
                     set_encrypted.set(false);
                     set_pending_bytes.set(None);
-
-
 
                     match hdfc_cc_parser::parse_pdf_bytes(&bytes) {
                         Ok(txns) => {
@@ -163,13 +158,15 @@ pub fn App() -> impl IntoView {
 
         let props = BlobPropertyBag::new();
         props.set_type("text/csv");
-        let blob = match Blob::new_with_str_sequence_and_options(&js_sys::Array::of1(&csv.into()), &props) {
-            Ok(b) => b,
-            Err(e) => {
-                set_error.set(Some(format!("Failed to create blob: {e:?}")));
-                return;
-            }
-        };
+        let blob =
+            match Blob::new_with_str_sequence_and_options(&js_sys::Array::of1(&csv.into()), &props)
+            {
+                Ok(b) => b,
+                Err(e) => {
+                    set_error.set(Some(format!("Failed to create blob: {e:?}")));
+                    return;
+                }
+            };
 
         let url = match Url::create_object_url_with_blob(&blob) {
             Ok(u) => u,

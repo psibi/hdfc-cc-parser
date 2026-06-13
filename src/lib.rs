@@ -97,7 +97,10 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
             let after = s[j..].trim_start();
             if after.starts_with("Tj") {
                 let inner = &s[start + 1..j - 1];
-                let text = inner.replace("\\(", "(").replace("\\)", ")").replace("\\\\", "\\");
+                let text = inner
+                    .replace("\\(", "(")
+                    .replace("\\)", ")")
+                    .replace("\\\\", "\\");
                 if !current.is_empty() {
                     current.push(' ');
                 }
@@ -138,7 +141,10 @@ fn extract_lines(content: &[u8]) -> Vec<String> {
                             cj += 1;
                         }
                         let inner = &array_content[ci + 1..cj - 1];
-                        let text = inner.replace("\\(", "(").replace("\\)", ")").replace("\\\\", "\\");
+                        let text = inner
+                            .replace("\\(", "(")
+                            .replace("\\)", ")")
+                            .replace("\\\\", "\\");
                         array_text.push_str(text.trim());
                         ci = cj;
                     } else {
@@ -188,7 +194,9 @@ fn parse_td_coords(s: &str) -> Option<(f64, f64, usize)> {
     )
         .parse_next(&mut input)
         .ok()?;
-    let _ = space0::<_, winnow::error::ContextError>.parse_next(&mut input).ok()?;
+    let _ = space0::<_, winnow::error::ContextError>
+        .parse_next(&mut input)
+        .ok()?;
     if input.starts_with("Td") {
         Some((x, y, s.len() - input.len() + 2))
     } else {
@@ -325,12 +333,7 @@ fn parse_transactions(lines: &[String]) -> Vec<Transaction> {
     transactions
 }
 
-fn collect_words(
-    text: &str,
-    desc: &mut Vec<String>,
-    amount: &mut String,
-    is_credit: &mut bool,
-) {
+fn collect_words(text: &str, desc: &mut Vec<String>, amount: &mut String, is_credit: &mut bool) {
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut w = 0;
     while w < words.len() {
@@ -342,7 +345,11 @@ fn collect_words(
                         if raw.starts_with('+') {
                             *is_credit = true;
                         }
-                        *amount = raw.trim_start_matches('+').trim().replace(',', "").to_string();
+                        *amount = raw
+                            .trim_start_matches('+')
+                            .trim()
+                            .replace(',', "")
+                            .to_string();
                     }
                     w += 2;
                     continue;
@@ -372,7 +379,11 @@ fn collect_words(
             word => {
                 if is_amount_word(word) && amount.is_empty() {
                     if word.contains(',') {
-                        *amount = word.trim_start_matches('+').trim().replace(',', "").to_string();
+                        *amount = word
+                            .trim_start_matches('+')
+                            .trim()
+                            .replace(',', "")
+                            .to_string();
                     }
                     w += 1;
                 } else {
